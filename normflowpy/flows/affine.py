@@ -100,6 +100,7 @@ class AffineCouplingFlowVector(UnconditionalBaseFlowLayer):
     def __init__(self, dim, parity, net_class=base_nets.MLP, nh=24, scale=True, shift=True):
         super().__init__()
         self.dim = dim
+        self.dim_half = self.dim // 2
         self.parity = parity
         self.s_cond = lambda x: x.new_zeros(x.size(0), self.dim // 2)
         self.t_cond = lambda x: x.new_zeros(x.size(0), self.dim // 2)
@@ -109,7 +110,7 @@ class AffineCouplingFlowVector(UnconditionalBaseFlowLayer):
             self.t_cond = net_class(self.dim // 2, self.dim // 2, nh)
 
     def forward(self, x):
-        x0, x1 = x[:, ::2], x[:, 1::2]
+        x0, x1 = x[:, :self.dim_half], x[:, self.dim_half:]
         if self.parity:
             x0, x1 = x1, x0
 
@@ -125,7 +126,7 @@ class AffineCouplingFlowVector(UnconditionalBaseFlowLayer):
         return z, log_det
 
     def backward(self, z):
-        z0, z1 = z[:, ::2], z[:, 1::2]
+        z0, z1 = z[:, :self.dim_half], z[:, self.dim_half:]
         if self.parity:
             z0, z1 = z1, z0
 
@@ -192,7 +193,7 @@ class AffineCouplingFlow2d(UnconditionalBaseFlowLayer):
         self.parity = parity
         self.s_cond = lambda x: x.new_zeros(x.size(0), self.dim // 2)
         self.t_cond = lambda x: x.new_zeros(x.size(0), self.dim // 2)
-        self.scale = nn.Parameter(torch.ones(1), requires_grad=True)
+        self.scale = nn.Parameter(torch.ones([]), requires_grad=True)
         self.scale_mode = scale_mode
         # if scale:
         self.input_size = self.dim // 2
@@ -202,14 +203,14 @@ class AffineCouplingFlow2d(UnconditionalBaseFlowLayer):
         #     self.t_cond = net_class(self.dim // 2, self.dim // 2, nh)
 
     def forward(self, x):
-        x0, x1 = x[:, ::2, :, :], x[:, 1::2, :, :]
+        x0, x1 = x[:, :self.input_size, :, :], x[:, self.input_size:, :, :]
         if self.parity:
             x0, x1 = x1, x0
 
         s = self.s_cond(x0)
-        t = self.t_cond(x0)
+        t, log_scale = torch.split(s, split_size_or_sections=self.input_size, dim=1)
         if self.scale_mode == AffineScale.SCALE_TANH:
-            s = self.scale * torch.tanh(s)
+            s = self.scale * torch.tanh(log_scale)
         z0 = x0  # untouched half
         z1 = torch.exp(s) * x1 + t  # transform this half as a function of the other
         if self.parity:
@@ -224,15 +225,10 @@ class AffineCouplingFlow2d(UnconditionalBaseFlowLayer):
             z0, z1 = z1, z0
 
         s = self.s_cond(z0)
-        t, log_scale = torch.split(s, 2, dim=1)
-
+        t, log_scale = torch.split(s, split_size_or_sections=self.input_size, dim=1)
         if self.scale_mode == AffineScale.SCALE_TANH:
             s = self.scale * torch.tanh(log_scale)
-        # if self.name == "7":
-        #     from debug_singleton import DebugClass
-        #     dc = DebugClass()
-        #     dc.add_tensors_pytorch("shift", t)
-        #     dc.add_tensors_pytorch("log_scale", s)
+
         x0 = z0  # this was the same
         x1 = (z1 - t) * torch.exp(-s)  # reverse the transform on this half
         if self.parity:

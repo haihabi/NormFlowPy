@@ -21,13 +21,13 @@ class EdgePadding(nn.Module):
 
     def forward(self, x):
         x_tilde = self.simple_pad(x)
-        return torch.cat([x_tilde, self.pad_constant], dim=1)
+        return torch.cat([x_tilde, self.pad_constant.repeat([x.shape[0], 1, 1, 1])], dim=1)
 
 
 class LogExpScale(nn.Module):
     def __init__(self, n_channels):
         super().__init__()
-        self.logs = nn.Parameter(torch.randn(n_channels))
+        self.logs = nn.Parameter(torch.randn(1, n_channels))
 
     def forward(self, x):
         return x * torch.exp(self.logs.reshape([1, -1, 1, 1]) * 3)

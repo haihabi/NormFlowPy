@@ -8,13 +8,9 @@ class Tensor2Vector(UnconditionalBaseFlowLayer):
         self.shape = in_shape
 
     def forward(self, x):
-        z = x.flatten()
-
-        log_det = 0
-        return z, log_det
+        z = x.reshape([x.shape[0], -1])
+        return z, 0
 
     def backward(self, z):
         x = z.reshape([-1, *self.shape])
-
-        log_det = 0
-        return x, log_det
+        return x, 0
