@@ -191,14 +191,15 @@ class AffineCouplingFlow2d(UnconditionalBaseFlowLayer):
         super().__init__()
         self.dim = x_shape[0]
         self.parity = parity
-        self.s_cond = lambda x: x.new_zeros(x.size(0), self.dim // 2)
-        self.t_cond = lambda x: x.new_zeros(x.size(0), self.dim // 2)
+        # self.s_cond = lambda x: x.new_zeros(x.size(0), self.dim // 2)
+        # self.t_cond = lambda x: x.new_zeros(x.size(0), self.dim // 2)
         self.scale = nn.Parameter(torch.ones([]), requires_grad=True)
         self.scale_mode = scale_mode
         # if scale:
         self.input_size = self.dim // 2
         output_size = 2 * self.input_size
-        self.s_cond = net_class(self.input_size, output_size, x_shape, nh)
+        self.add_module("s_cond",net_class(self.input_size, output_size, x_shape, nh))
+        # self.s_cond = net_class(self.input_size, output_size, x_shape, nh)
         # if shift:
         #     self.t_cond = net_class(self.dim // 2, self.dim // 2, nh)
 

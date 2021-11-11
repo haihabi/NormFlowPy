@@ -72,7 +72,8 @@ class NormalizingFlowModel(nn.Module):
         return torch.mean(self.nll(x, cond)) / x.shape[1]  # NLL per dim
 
     def sample(self, num_samples, cond=None):
-        z = self.prior.sample((num_samples,))
+        device=list(self.flow.parameters())[0].device
+        z = self.prior.sample((num_samples,)).to(device)
         xs, _ = self.backward(z, cond)
         return xs
 
