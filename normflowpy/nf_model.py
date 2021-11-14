@@ -72,7 +72,8 @@ class NormalizingFlowModel(nn.Module):
         return torch.mean(self.nll(x, cond)) / x.shape[1]  # NLL per dim
 
     def sample(self, num_samples, cond=None):
-        device=list(self.flow.parameters())[0].device
+        param_list = list(self.flow.parameters())
+        device = list(self.flow.parameters())[0].device if len(param_list)>0 else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         z = self.prior.sample((num_samples,)).to(device)
         xs, _ = self.backward(z, cond)
         return xs
