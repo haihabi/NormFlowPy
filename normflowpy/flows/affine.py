@@ -198,7 +198,7 @@ class AffineCouplingFlow2d(UnconditionalBaseFlowLayer):
         # if scale:
         self.input_size = self.dim // 2
         output_size = 2 * self.input_size
-        self.add_module("s_cond",net_class(self.input_size, output_size, x_shape, nh))
+        self.add_module("s_cond", net_class(self.input_size, output_size, x_shape, nh))
         # self.s_cond = net_class(self.input_size, output_size, x_shape, nh)
         # if shift:
         #     self.t_cond = net_class(self.dim // 2, self.dim // 2, nh)

@@ -16,12 +16,12 @@ class EdgePadding(nn.Module):
         pad[:, 0, -a:, :] = 1.
         pad[:, 0, :, :b] = 1.
         pad[:, 0, :, -b:] = 1.
-        self.pad_constant = nn.Parameter(torch.tensor(pad), requires_grad=False)
+        self.pad_constant = torch.tensor(pad)
         self.simple_pad = nn.ZeroPad2d(padding)
 
     def forward(self, x):
         x_tilde = self.simple_pad(x)
-        return torch.cat([x_tilde, self.pad_constant.repeat([x.shape[0], 1, 1, 1])], dim=1)
+        return torch.cat([x_tilde, self.pad_constant.repeat([x.shape[0], 1, 1, 1]).to(x.device)], dim=1)
 
 
 class LogExpScale(nn.Module):
