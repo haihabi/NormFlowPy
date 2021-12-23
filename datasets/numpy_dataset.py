@@ -15,6 +15,9 @@ class NumpyDataset(Dataset):
             return d
         l = self.label[index]
         return d, l
-        
+
     def __len__(self):
         return self.n
+
+    def dim(self) -> int:
+        return int(np.prod(self.__getitem__(0).shape))

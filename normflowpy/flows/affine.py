@@ -97,11 +97,14 @@ class AffineCouplingFlowVector(UnconditionalBaseFlowLayer):
     - NICE only shifts
     """
 
-    def __init__(self, dim, parity, net_class=base_nets.MLP, nh=24, scale=True, shift=True):
+    def __init__(self, dim, parity, net_class=base_nets.MLP, nh=24, scale=True, shift=True,
+                 scale_mode: AffineScale = AffineScale.IDENTITY):
         super().__init__()
         self.dim = dim
         self.dim_half = self.dim // 2
         self.parity = parity
+        self.scale = nn.Parameter(torch.ones([]), requires_grad=True)
+        self.scale_mode = scale_mode
         self.s_cond = lambda x: x.new_zeros(x.size(0), self.dim // 2)
         self.t_cond = lambda x: x.new_zeros(x.size(0), self.dim // 2)
         if scale:
@@ -116,6 +119,8 @@ class AffineCouplingFlowVector(UnconditionalBaseFlowLayer):
 
         s = self.s_cond(x0)
         t = self.t_cond(x0)
+        if self.scale_mode == AffineScale.SCALE_TANH:
+            s = self.scale * torch.tanh(s)
 
         z0 = x0  # untouched half
         z1 = torch.exp(s) * x1 + t  # transform this half as a function of the other
@@ -132,6 +137,8 @@ class AffineCouplingFlowVector(UnconditionalBaseFlowLayer):
 
         s = self.s_cond(z0)
         t = self.t_cond(z0)
+        if self.scale_mode == AffineScale.SCALE_TANH:
+            s = self.scale * torch.tanh(s)
         x0 = z0  # this was the same
         x1 = (z1 - t) * torch.exp(-s)  # reverse the transform on this half
         if self.parity:
