@@ -40,11 +40,11 @@ class PositionalEncoder(nn.Module):
         return out
 
 
-def generate_mlp_class(n_hidden, n_layer=4, non_linear_function=nn.LeakyReLU, bias=True):
+def generate_mlp_class(n_layer=4, non_linear_function=nn.LeakyReLU, bias=True):
     class MLPC(nn.Module):
         """ a simple n-layer MLP """
 
-        def __init__(self, nin, nout):
+        def __init__(self, nin, nout, n_hidden):
             super().__init__()
             if n_layer == 1:  # The case of singe layer
                 layer_list = [nn.Linear(nin, nout, bias=bias)]

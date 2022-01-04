@@ -34,10 +34,12 @@ class LogExpScale(nn.Module):
 
 
 class RealNVPConvBaseNet(nn.Module):
-    def __init__(self, n_channels, n_outputs, x_shape, width=512, activation_function=nn.ReLU):
+    def __init__(self, x_shape, n_outputs, width=512, activation_function=nn.ReLU):
         super().__init__()
-        self.n_channels = n_channels
+        self.n_channels = x_shape[0] // 2
         self.num_output = n_outputs
+        self.scale = nn.Parameter(torch.ones([]), requires_grad=True)
+
         module_list = [nn.Conv2d(self.n_channels, width, kernel_size=(3, 3), padding=(1, 1), stride=(1, 1)),
                        nn.BatchNorm2d(width, affine=False, eps=1e-4),
                        activation_function(),
@@ -53,4 +55,6 @@ class RealNVPConvBaseNet(nn.Module):
     def forward(self, x):
         for i, m in enumerate(self.seq):
             x = m(x)
-        return x
+        t, log_scale = torch.split(x, split_size_or_sections=self.n_channels, dim=1)
+        s = self.scale * torch.tanh(log_scale)
+        return torch.cat([t, s], dim=1)

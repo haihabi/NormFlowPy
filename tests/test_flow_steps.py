@@ -26,13 +26,8 @@ class TestFlowSteps(unittest.TestCase):
         input_shape = [5, 10]
         self.base_flow_step(flow_step, input_shape)
 
-    def test_affine_coupling_vector(self):
-        flow_step = nfp.flows.AffineCouplingFlowVector(10, 0)
-        input_shape = [5, 10]
-        self.base_flow_step(flow_step, input_shape)
-
     def test_affine_coupling_2d(self):
-        flow_step = nfp.flows.AffineCouplingFlow2d([10, 4, 4], 0)
+        flow_step = nfp.flows.AffineCoupling([10, 4, 4], 0)
         input_shape = [4, 10, 4, 4]
         self.base_flow_step(flow_step, input_shape)
 
