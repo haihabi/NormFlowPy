@@ -1,5 +1,5 @@
-from datasets.moons import generate_moons_dataset
-from datasets.numpy_dataset import NumpyDataset
+from experiments.datasets.moons import generate_moons_dataset
+from experiments.datasets.numpy_dataset import NumpyDataset
 from enum import Enum
 
 

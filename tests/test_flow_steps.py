@@ -11,6 +11,7 @@ class TestFlowSteps(unittest.TestCase):
             x = torch.abs(x).sum()  # Sum batch axis
             x = x.item()
         self.assertTrue(np.isclose(x, 0))
+        print("a") # TODO: check load and save
 
     def base_flow_step(self, flow_step, input_shape):
         z = torch.randn(input_shape)

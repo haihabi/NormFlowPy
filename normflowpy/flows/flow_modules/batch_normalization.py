@@ -1,10 +1,10 @@
 from torch import nn
 import torch
 import numpy as np
-from normflowpy.base_flow import ConditionalBaseFlowLayer
+from normflowpy.base_flow import UnconditionalBaseFlowLayer
 
 
-class BatchNorm(ConditionalBaseFlowLayer):
+class BatchNorm(UnconditionalBaseFlowLayer):
     def __init__(self, num_features, momentum=0.1, eps=1.0e-5, affine=True):
         super(BatchNorm, self).__init__()
 
@@ -28,7 +28,7 @@ class BatchNorm(ConditionalBaseFlowLayer):
         self.register_buffer('batch_mean', torch.zeros(self.dimensions))
         self.register_buffer('batch_var', torch.ones(self.dimensions))
 
-    def forward(self, x, cond=None):
+    def forward(self, x):
         if self.training:
             x_reshape = x.view(x.size(0), self.num_features)
             x_mean = torch.mean(x_reshape, dim=[0], keepdim=True)
@@ -54,7 +54,7 @@ class BatchNorm(ConditionalBaseFlowLayer):
 
         return x, log_det_jacob
 
-    def backward(self, x, cond=None):
+    def backward(self, x):
         if self.training:
             mean, var = self.batch_mean, self.batch_var
         else:
