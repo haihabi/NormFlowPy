@@ -1,4 +1,5 @@
 import torch
+import math
 from torch import nn
 from normflowpy.base_flow import UnconditionalBaseFlowLayer, ConditionalBaseFlowLayer
 
@@ -14,15 +15,21 @@ class NormalizingFlow(nn.Module):
         m = x.shape[0]
         log_det = torch.zeros(m, device=x.device)
         zs = [x]
-        for flow in self.flows:
-            if isinstance(flow, UnconditionalBaseFlowLayer):
-                x, ld = flow.forward(x)
-            elif isinstance(flow, ConditionalBaseFlowLayer):
-                x, ld = flow.forward(x, cond=cond)
-            else:
-                raise Exception("Unknown flow type")
-            log_det += ld
-            zs.append(x)
+        for i, flow in enumerate(self.flows):
+            try:
+                if isinstance(flow, UnconditionalBaseFlowLayer):
+                    x, ld = flow.forward(x)
+                elif isinstance(flow, ConditionalBaseFlowLayer):
+                    x, ld = flow.forward(x, cond=cond)
+                else:
+                    raise Exception("Unknown flow type")
+                if torch.any(torch.isnan(x)):
+                    raise Exception("Output results is Not a Number")
+                log_det += ld
+                zs.append(x)
+
+            except Exception as e:
+                raise Exception(f"Error {e} in flow type:{type(flow)} at index {i}")
         return zs, log_det
 
     def backward(self, z, cond=None):
@@ -69,16 +76,18 @@ class NormalizingFlowModel(nn.Module):
         return -logprob  # Negative LL
 
     def nll_mean(self, x, cond=None):
-        return torch.mean(self.nll(x, cond)) / x.shape[1]  # NLL per dim
+        return torch.mean(self.nll(x, cond)) / x.shape[1:].numel()  # NLL per dim
 
-    def sample(self, num_samples, cond=None):
+    def sample(self, num_samples, cond=None, temperature: float = 1):
         param_list = list(self.flow.parameters())
-        device = list(self.flow.parameters())[0].device if len(param_list)>0 else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = list(self.flow.parameters())[0].device if len(param_list) > 0 else torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
         z = self.prior.sample((num_samples,)).to(device)
+        z = math.sqrt(temperature) * z
         xs, _ = self.backward(z, cond)
-        return xs
+        return xs[-1]
 
-    def sample_nll(self, num_samples, cond=None):
-        y = self.sample(num_samples, cond=cond)[-1]
+    def sample_nll(self, num_samples, cond=None, temperature=1.0):
+        y = self.sample(num_samples, cond=cond, temperature=temperature)
         y = y.detach()
         return self.nll(y, cond)

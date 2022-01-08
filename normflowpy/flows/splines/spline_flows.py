@@ -12,18 +12,11 @@ import torch.nn.init as init
 import torch.nn.functional as F
 from normflowpy.base_nets import MLP
 from normflowpy.base_flow import UnconditionalBaseFlowLayer
+from normflowpy.flows.splines.utils import searchsorted
 
 DEFAULT_MIN_BIN_WIDTH = 1e-3
 DEFAULT_MIN_BIN_HEIGHT = 1e-3
 DEFAULT_MIN_DERIVATIVE = 1e-3
-
-
-def searchsorted(bin_locations, inputs, eps=1e-6):
-    bin_locations[..., -1] += eps
-    return torch.sum(
-        inputs[..., None] >= bin_locations,
-        dim=-1
-    ) - 1
 
 
 def unconstrained_RQS(inputs, unnormalized_widths, unnormalized_heights,
@@ -217,8 +210,8 @@ class NSF_CL(UnconditionalBaseFlowLayer):
         self.dim = dim
         self.K = K
         self.B = B
-        self.f1 = base_network(dim // 2, (3 * K - 1) * dim // 2, hidden_dim)
-        self.f2 = base_network(dim // 2, (3 * K - 1) * dim // 2, hidden_dim)
+        self.f1 = base_network([dim], (3 * K - 1) * dim // 2, hidden_dim)
+        self.f2 = base_network([dim], (3 * K - 1) * dim // 2, hidden_dim)
 
     def forward(self, x):
         log_det = torch.zeros(x.shape[0], device=x.device)

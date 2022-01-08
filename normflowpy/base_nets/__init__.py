@@ -1,2 +1,2 @@
-from normflowpy.base_nets.mlp_base_net import generate_mlp_class, MLP
+from normflowpy.base_nets.mlp_base_net import generate_mlp_class, MLP,ScaledTanh
 from normflowpy.base_nets.real_nvp_conv_base import RealNVPConvBaseNet
