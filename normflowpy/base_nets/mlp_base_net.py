@@ -45,7 +45,7 @@ def generate_mlp_class(n_layer=4, non_linear_function=nn.LeakyReLU, bias=True):
         """ a simple n-layer MLP """
 
         def __init__(self, x_shape, nout, n_hidden):
-            nin=x_shape[0]//2
+            nin = x_shape[0]//2
             super().__init__()
             if n_layer == 1:  # The case of singe layer
                 layer_list = [nn.Linear(nin, nout, bias=bias)]

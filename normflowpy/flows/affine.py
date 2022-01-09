@@ -107,9 +107,9 @@ class AffineInjector(ConditionalBaseFlowLayer):
         self.s_cond = lambda x: x.new_zeros(x.size(0), self.dim)
         self.t_cond = lambda x: x.new_zeros(x.size(0), self.dim)
         if scale:
-            self.s_cond = net_class(self.condition_vector_size, self.dim, n_hidden)
+            self.s_cond = net_class([2 * self.condition_vector_size], self.dim, n_hidden)
         if shift:
-            self.t_cond = net_class(self.condition_vector_size, self.dim, n_hidden)
+            self.t_cond = net_class([2 * self.condition_vector_size], self.dim, n_hidden)
 
     def forward(self, x, cond):
 

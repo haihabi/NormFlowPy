@@ -13,15 +13,15 @@ class ActNorm(AffineConstantFlow):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.data_dep_init_done = False
+        self.data_dep_init_done = nn.Parameter(torch.zeros(1), requires_grad=False)
 
     def forward(self, x):
         # first batch is used for init
-        if not self.data_dep_init_done:
+        if self.data_dep_init_done == 0:
             assert self.s is not None and self.t is not None  # for now
             self.s.data = (-torch.log(x.std(dim=0, keepdim=True))).detach()
             self.t.data = (-(x * torch.exp(self.s)).mean(dim=0, keepdim=True)).detach()
-            self.data_dep_init_done = True
+            self.data_dep_init_done.data = torch.ones(1, device=x.device)
         return super().forward(x)
 
 
