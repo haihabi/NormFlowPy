@@ -1,4 +1,5 @@
 import torch
+import math
 from torch import nn
 from normflowpy.base_flow import UnconditionalBaseFlowLayer, ConditionalBaseFlowLayer
 
@@ -71,14 +72,16 @@ class NormalizingFlowModel(nn.Module):
     def nll_mean(self, x, cond=None):
         return torch.mean(self.nll(x, cond)) / x.shape[1]  # NLL per dim
 
-    def sample(self, num_samples, cond=None):
+    def sample(self, num_samples, cond=None, temperature=1):
         param_list = list(self.flow.parameters())
-        device = list(self.flow.parameters())[0].device if len(param_list)>0 else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = list(self.flow.parameters())[0].device if len(param_list) > 0 else torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
         z = self.prior.sample((num_samples,)).to(device)
-        xs, _ = self.backward(z, cond)
+        z = math.sqrt(temperature) * z
+        xs, _ = self.backward(z, cond)[-1]
         return xs
 
     def sample_nll(self, num_samples, cond=None):
-        y = self.sample(num_samples, cond=cond)[-1]
+        y = self.sample(num_samples, cond=cond)
         y = y.detach()
         return self.nll(y, cond)
