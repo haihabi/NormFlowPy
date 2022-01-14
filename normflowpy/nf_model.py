@@ -78,8 +78,8 @@ class NormalizingFlowModel(nn.Module):
             "cuda" if torch.cuda.is_available() else "cpu")
         z = self.prior.sample((num_samples,)).to(device)
         z = math.sqrt(temperature) * z
-        xs, _ = self.backward(z, cond)[-1]
-        return xs
+        xs, _ = self.backward(z, cond)
+        return xs[-1]
 
     def sample_nll(self, num_samples, cond=None):
         y = self.sample(num_samples, cond=cond)
