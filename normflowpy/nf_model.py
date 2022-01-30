@@ -15,15 +15,21 @@ class NormalizingFlow(nn.Module):
         m = x.shape[0]
         log_det = torch.zeros(m, device=x.device)
         zs = [x]
-        for flow in self.flows:
-            if isinstance(flow, UnconditionalBaseFlowLayer):
-                x, ld = flow.forward(x)
-            elif isinstance(flow, ConditionalBaseFlowLayer):
-                x, ld = flow.forward(x, cond=cond)
-            else:
-                raise Exception("Unknown flow type")
-            log_det += ld
-            zs.append(x)
+        for i,flow in enumerate(self.flows):
+            try:
+                if isinstance(flow, UnconditionalBaseFlowLayer):
+                    x, ld = flow.forward(x)
+                elif isinstance(flow, ConditionalBaseFlowLayer):
+                    x, ld = flow.forward(x, cond=cond)
+                else:
+                    raise Exception("Unknown flow type")
+                if torch.any(torch.isnan(x)):
+                    raise Exception("Output results is Not a Number")
+                log_det += ld
+                zs.append(x)
+
+            except Exception as e:
+                raise Exception(f"Error {e} in flow type:{type(flow)} at index {i}")
         return zs, log_det
 
     def backward(self, z, cond=None):
@@ -70,7 +76,7 @@ class NormalizingFlowModel(nn.Module):
         return -logprob  # Negative LL
 
     def nll_mean(self, x, cond=None):
-        return torch.mean(self.nll(x, cond)) / x.shape[1]  # NLL per dim
+        return torch.mean(self.nll(x, cond)) / x.shape[1:].numel()  # NLL per dim
 
     def sample(self, num_samples, cond=None, temperature=1):
         param_list = list(self.flow.parameters())

@@ -11,15 +11,16 @@ class ActNorm(AffineConstantFlow):
     is unit gaussian. As described in Glow paper.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, eps=1e-5, **kwargs):
         super().__init__(*args, **kwargs)
         self.data_dep_init_done = nn.Parameter(torch.zeros(1), requires_grad=False)
+        self.eps = eps
 
     def forward(self, x):
         # first batch is used for init
         if self.data_dep_init_done == 0:
             assert self.s is not None and self.t is not None  # for now
-            self.s.data = (-torch.log(x.std(dim=0, keepdim=True))).detach()
+            self.s.data = (-torch.log(torch.sqrt(x.var(dim=0, keepdim=True) + self.eps))).detach()
             self.t.data = (-(x * torch.exp(self.s)).mean(dim=0, keepdim=True)).detach()
             self.data_dep_init_done.data = torch.ones(1, device=x.device)
         return super().forward(x)

@@ -1,4 +1,3 @@
-import torch
 from normflowpy.base_flow import UnconditionalBaseFlowLayer
 
 
@@ -14,3 +13,5 @@ class Tensor2Vector(UnconditionalBaseFlowLayer):
     def backward(self, z):
         x = z.reshape([-1, *self.shape])
         return x, 0
+
+
