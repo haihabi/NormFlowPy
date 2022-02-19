@@ -3,25 +3,42 @@ from torch import nn
 import numpy as np
 
 
+def generate_pad_constant(x, padding):
+    x_shape = list(x.shape)
+    a = padding
+    b = padding
+    hw_shape = x_shape[2:4]
+    hw_shape[0] += 2 * padding
+    hw_shape[1] += 2 * padding
+    pad = np.zeros([1, 1] + hw_shape, dtype='float32')
+    pad[:, 0, :a, :] = 1.
+    pad[:, 0, -a:, :] = 1.
+    pad[:, 0, :, :b] = 1.
+    pad[:, 0, :, -b:] = 1.
+    return torch.tensor(pad)
+
+
 class EdgePadding(nn.Module):
     def __init__(self, x_shape, padding=1):
         super().__init__()
-        a = padding
-        b = padding
-        hw_shape = x_shape[1:3]
-        hw_shape[0] += 2 * padding
-        hw_shape[1] += 2 * padding
-        pad = np.zeros([1, 1] + hw_shape, dtype='float32')
-        pad[:, 0, :a, :] = 1.
-        pad[:, 0, -a:, :] = 1.
-        pad[:, 0, :, :b] = 1.
-        pad[:, 0, :, -b:] = 1.
-        self.pad_constant = torch.tensor(pad)
+        # a = padding
+        # b = padding
+        # hw_shape = x_shape[1:3]
+        # hw_shape[0] += 2 * padding
+        # hw_shape[1] += 2 * padding
+        # pad = np.zeros([1, 1] + hw_shape, dtype='float32')
+        # pad[:, 0, :a, :] = 1.
+        # pad[:, 0, -a:, :] = 1.
+        # pad[:, 0, :, :b] = 1.
+        # pad[:, 0, :, -b:] = 1.
+        # self.pad_constant = torch.tensor(pad)
+        self.padding = padding
         self.simple_pad = nn.ZeroPad2d(padding)
 
     def forward(self, x):
         x_tilde = self.simple_pad(x)
-        return torch.cat([x_tilde, self.pad_constant.repeat([x.shape[0], 1, 1, 1]).to(x.device)], dim=1)
+        return torch.cat([x_tilde, generate_pad_constant(x, self.padding).repeat([x.shape[0], 1, 1, 1]).to(x.device)],
+                         dim=1)
 
 
 class LogExpScale(nn.Module):
