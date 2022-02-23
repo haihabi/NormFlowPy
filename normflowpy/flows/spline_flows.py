@@ -217,8 +217,8 @@ class NSF_CL(UnconditionalBaseFlowLayer):
         self.dim = dim
         self.K = K
         self.B = B
-        self.f1 = base_network(dim // 2, (3 * K - 1) * dim // 2, hidden_dim)
-        self.f2 = base_network(dim // 2, (3 * K - 1) * dim // 2, hidden_dim)
+        self.f1 = base_network([dim], (3 * K - 1) * dim // 2, hidden_dim)
+        self.f2 = base_network([dim], (3 * K - 1) * dim // 2, hidden_dim)
 
     def forward(self, x):
         log_det = torch.zeros(x.shape[0], device=x.device)
