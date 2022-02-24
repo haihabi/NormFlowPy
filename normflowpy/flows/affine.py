@@ -36,14 +36,14 @@ class AffineConstantFlow(UnconditionalBaseFlowLayer):
         s = self.s if self.s is not None else x.new_zeros(x.size())
         t = self.t if self.t is not None else x.new_zeros(x.size())
         z = x * torch.exp(s) + t
-        log_det = torch.sum(s.reshape([1,-1]), dim=1)
+        log_det = torch.sum(s.reshape([1, -1]), dim=1)
         return z, log_det
 
     def backward(self, z):
         s = self.s if self.s is not None else z.new_zeros(z.size())
         t = self.t if self.t is not None else z.new_zeros(z.size())
         x = (z - t) * torch.exp(-s)
-        log_det = torch.sum(-s.reshape([1,-1]), dim=1)
+        log_det = torch.sum(-s.reshape([1, -1]), dim=1)
         return x, log_det
 
 
@@ -139,16 +139,24 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
     - NICE only shifts
     """
 
-    def __init__(self, x_shape, parity, net_class=base_nets.RealNVPConvBaseNet, nh=4):
+    def __init__(self, x_shape, parity, net_class=base_nets.RealNVPConvBaseNet, nh=4, scale=True, shift=True):
         super().__init__()
         BaseAffineCoupling.__init__(self, parity, x_shape[0] // 2)
-        output_size = 2 * self.input_size
+        output_size = (int(scale) + int(shift)) * self.input_size
         self.add_module("s_cond", net_class(x_shape, output_size, nh))
+        self.scale = scale
+        self.shift = shift
 
     def forward(self, x):
         x0, x1 = self.split_input(x)
         s = self.s_cond(x0)
-        t, s = torch.split(s, split_size_or_sections=self.input_size, dim=1)  # Split output to scale and shift
+        if self.scale and self.shift:
+            t, s = torch.split(s, split_size_or_sections=self.input_size, dim=1)  # Split output to scale and shift
+        elif self.scale:
+            t = 0
+        elif self.shift:
+            t = s
+            s = torch.zeros([x0.shape[0],1]) # TODO: change to correct shape
         z0 = x0  # untouched half
         z1 = torch.exp(s) * x1 + t  # transform this half as a function of the other
         z = self.joint_output(z0, z1)
@@ -158,8 +166,16 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
     def backward(self, z):
         z0, z1 = self.split_input(z)
         s = self.s_cond(z0)
-        t, s = torch.split(s, split_size_or_sections=self.input_size, dim=1)
+        if self.scale and self.shift:
+            t, s = torch.split(s, split_size_or_sections=self.input_size, dim=1)
+        elif self.scale:
+            t = 0
+        elif self.shift:
+            t = s
+            s = torch.zeros([z0.shape[0],1])
+
         x0 = z0  # this was the same
+
         x1 = (z1 - t) * torch.exp(-s)  # reverse the transform on this half
         x = self.joint_output(x0, x1)
         log_det = torch.sum(-s.reshape([x0.shape[0], -1]), dim=(1))

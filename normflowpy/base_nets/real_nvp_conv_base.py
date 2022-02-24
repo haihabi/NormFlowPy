@@ -51,20 +51,20 @@ class LogExpScale(nn.Module):
 
 
 class RealNVPConvBaseNet(nn.Module):
-    def __init__(self, x_shape, n_outputs, width=512, activation_function=nn.ReLU):
+    def __init__(self, x_shape, n_outputs, width=512, activation_function=nn.ReLU, edge_bias=True):
         super().__init__()
         self.n_channels = x_shape[0] // 2
         self.num_output = n_outputs
         self.scale = nn.Parameter(torch.ones([]), requires_grad=True)
-
+        p = 0 if edge_bias else 1
         module_list = [nn.Conv2d(self.n_channels, width, kernel_size=(3, 3), padding=(1, 1), stride=(1, 1)),
                        nn.BatchNorm2d(width, affine=False, eps=1e-4),
                        activation_function(),
                        nn.Conv2d(width, width, kernel_size=(1, 1), padding=(0, 0), stride=(1, 1)),
                        nn.BatchNorm2d(width, affine=False, eps=1e-4),
                        activation_function(),
-                       EdgePadding(x_shape),
-                       nn.Conv2d(width + 1, self.num_output, kernel_size=(3, 3), padding=(0, 0), stride=(1, 1)),
+                       EdgePadding(x_shape) if edge_bias else nn.Identity(),
+                       nn.Conv2d(width + edge_bias, self.num_output, kernel_size=(3, 3), padding=(p, p), stride=(1, 1)),
                        LogExpScale(self.num_output)
                        ]
         self.seq = nn.Sequential(*module_list)
