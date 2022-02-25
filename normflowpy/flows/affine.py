@@ -1,16 +1,21 @@
 import torch
+import math
 from torch import nn
 from normflowpy import base_nets
 from normflowpy.base_flow import ConditionalBaseFlowLayer, UnconditionalBaseFlowLayer
 
 
 class BaseAffineCoupling(object):
-    def __init__(self, parity, input_size):
+    def __init__(self, parity, input_size, neighbor_splitting=False):
+        self.neighbor_splitting = neighbor_splitting
         self.parity = parity
         self.input_size = input_size
 
     def split_input(self, zx):
-        zx0, zx1 = zx[:, :self.input_size], zx[:, self.input_size:]
+        if self.neighbor_splitting:
+            zx0, zx1 = zx[:, 0::2], zx[:, 1::2]
+        else:
+            zx0, zx1 = zx[:, :self.input_size], zx[:, self.input_size:]
         if self.parity:
             zx0, zx1 = zx1, zx0
         return zx0, zx1
@@ -18,7 +23,13 @@ class BaseAffineCoupling(object):
     def joint_output(self, zx0, zx1):
         if self.parity:
             zx0, zx1 = zx1, zx0
-        return torch.cat([zx0, zx1], dim=1)
+        if self.neighbor_splitting:
+            n = zx0.shape[1] + zx1.shape[1]
+            connect = torch.stack(
+                [zx0[:, math.floor(i / 2)] if i % 2 == 0 else zx1[:, math.floor(i / 2)] for i in range(n)], dim=1)
+            return connect
+        else:
+            return torch.cat([zx0, zx1], dim=1)
 
 
 class AffineConstantFlow(UnconditionalBaseFlowLayer):
@@ -139,9 +150,10 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
     - NICE only shifts
     """
 
-    def __init__(self, x_shape, parity, net_class=base_nets.RealNVPConvBaseNet, nh=4, scale=True, shift=True):
+    def __init__(self, x_shape, parity, net_class=base_nets.RealNVPConvBaseNet, nh=4, scale=True, shift=True,
+                 neighbor_splitting=False):
         super().__init__()
-        BaseAffineCoupling.__init__(self, parity, x_shape[0] // 2)
+        BaseAffineCoupling.__init__(self, parity, x_shape[0] // 2, neighbor_splitting=neighbor_splitting)
         output_size = (int(scale) + int(shift)) * self.input_size
         self.add_module("s_cond", net_class(x_shape, output_size, nh))
         self.scale = scale
@@ -156,7 +168,7 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
             t = 0
         elif self.shift:
             t = s
-            s = torch.zeros([x0.shape[0],1]) # TODO: change to correct shape
+            s = torch.zeros([x0.shape[0], 1])  # TODO: change to correct shape
         z0 = x0  # untouched half
         z1 = torch.exp(s) * x1 + t  # transform this half as a function of the other
         z = self.joint_output(z0, z1)
@@ -172,7 +184,7 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
             t = 0
         elif self.shift:
             t = s
-            s = torch.zeros([z0.shape[0],1])
+            s = torch.zeros([z0.shape[0], 1])
 
         x0 = z0  # this was the same
 
