@@ -15,7 +15,7 @@ class NormalizingFlow(nn.Module):
         m = x.shape[0]
         log_det = torch.zeros(m, device=x.device)
         zs = [x]
-        for i,flow in enumerate(self.flows):
+        for i, flow in enumerate(self.flows):
             try:
                 if isinstance(flow, UnconditionalBaseFlowLayer):
                     x, ld = flow.forward(x)
@@ -78,7 +78,7 @@ class NormalizingFlowModel(nn.Module):
     def nll_mean(self, x, cond=None):
         return torch.mean(self.nll(x, cond)) / x.shape[1:].numel()  # NLL per dim
 
-    def sample(self, num_samples, cond=None, temperature=1):
+    def sample(self, num_samples, cond=None, temperature: float = 1):
         param_list = list(self.flow.parameters())
         device = list(self.flow.parameters())[0].device if len(param_list) > 0 else torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
@@ -87,7 +87,7 @@ class NormalizingFlowModel(nn.Module):
         xs, _ = self.backward(z, cond)
         return xs[-1]
 
-    def sample_nll(self, num_samples, cond=None):
-        y = self.sample(num_samples, cond=cond)
+    def sample_nll(self, num_samples, cond=None, temperature=1.0):
+        y = self.sample(num_samples, cond=cond, temperature=temperature)
         y = y.detach()
         return self.nll(y, cond)
