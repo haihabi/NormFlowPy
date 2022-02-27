@@ -42,6 +42,12 @@ class TestFlowSteps(unittest.TestCase):
         input_shape = [4, 10, 4, 4]
         self.base_flow_step(flow_step, flow_step_sec, input_shape)
 
+    def test_cubic_flow(self):
+        flow_step = nfp.flows.CSF_CL(10)
+        flow_step_sec = nfp.flows.CSF_CL(10)
+        input_shape = [4, 10]
+        self.base_flow_step(flow_step, flow_step_sec, input_shape)
+
     def test_conv2d_1x1(self):
         flow_step = nfp.flows.InvertibleConv2d1x1(10)
         flow_step_sec = nfp.flows.InvertibleConv2d1x1(10)

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from normflowpy.flows.spline_flows import unconstrained_RQS
+from normflowpy.flows.splines.spline_flows import unconstrained_RQS
 from normflowpy.base_flow import UnconditionalBaseFlowLayer
 
 
