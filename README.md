@@ -17,11 +17,12 @@ We welcomes contributions from anyone and if you find a bug or have a question, 
 
 [1] Kingma, Durk P., and Prafulla Dhariwal. "Glow: Generative flow with invertible 1x1 convolutions." Advances in neural information processing systems 31 (2018).
 
-[2] Laurent Dinh, David Krueger, and Yoshua Bengio. NICE: nonlinear independent components estimation. In Yoshua Bengio
-and Yann LeCun, editors, 3rd International Conference on
-Learning Representations, ICLR 2015, San Diego, CA, USA,
-May 7-9, 2015, Workshop Track Proceedings, 2015.
+[2] Laurent Dinh, David Krueger, and Yoshua Bengio. NICE: nonlinear independent components estimation. In Yoshua Bengio and Yann LeCun, editors, 3rd International Conference on
+Learning Representations, ICLR 2015, San Diego, CA, USA, May 7-9, 2015, Workshop Track Proceedings, 2015.
+
 [3] Andreas Lugmayr, Martin Danelljan, Luc Van Gool, and RaduTimofte.Srflow:  Learning  the  super-resolution  space  withnormalizing flow. InEuropean Conference on Computer Vision,pages 715–732. Springer, 2020.
+
 [4]  Laurent Dinh, Jascha Sohl-Dickstein, and Samy Bengio. Densityestimation  using  real  nvp.arXiv preprint arXiv:1605.08803,2016.
+
 [5] Conor Durkan, Artur Bekasov, Iain Murray, and George Papa-makarios. Cubic-spline flows.arXiv preprint arXiv:1906.02145,2019
 
