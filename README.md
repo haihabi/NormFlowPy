@@ -20,7 +20,7 @@ We have provide only a single example at this stage please see [moons notebook](
 
 We welcomes contributions from anyone and if you find a bug or have a question, please create a GitHub issue.
 
-# Citations
+# Refernces
 
 [1] Kingma, Durk P., and Prafulla Dhariwal. "Glow: Generative flow with invertible 1x1 convolutions." Advances in neural information processing systems 31 (2018).
 
