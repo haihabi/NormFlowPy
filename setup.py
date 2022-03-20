@@ -1,15 +1,13 @@
-import argparse
-import sys
 from setuptools import setup, find_packages
 
 
 def read_install_requires():
-    print("Reading install requirments")
+    print("Reading install requirements")
     return [r.split('\n')[0] for r in open('requirements.txt', 'r').readlines()]
 
 
 def get_log_description():
-    print("Reading READEME File")
+    print("Reading README File")
     with open("README.MD", "r") as fh:
         long_description = fh.read()
     return long_description
