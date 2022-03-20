@@ -1,0 +1,35 @@
+import argparse
+import sys
+from setuptools import setup, find_packages
+
+
+def read_install_requires():
+    print("Reading install requirments")
+    return [r.split('\n')[0] for r in open('requirements.txt', 'r').readlines()]
+
+
+def get_log_description():
+    print("Reading READEME File")
+    with open("README.MD", "r") as fh:
+        long_description = fh.read()
+    return long_description
+
+
+setup_obj = setup(name='normflowpy',
+                  long_description=get_log_description(),
+                  long_description_content_type="text/markdown",
+                  description='A Normalizing flow package using PyTorch',
+                  packages=find_packages(
+                      exclude=["tests", "tests.*",
+                               "requirements", "requirements.*",
+                               "examples", "examples.*",
+                               ".github.*", "github"]),
+                  classifiers=[
+                      "Programming Language :: Python :: 3",
+                      "License :: OSI Approved :: MIT LICENSE",
+                      "Operating System :: OS Independent",
+                      "Topic :: Scientific/Engineering :: Artificial Intelligence"
+                  ],
+                  install_requires=read_install_requires(),
+                  python_requires='>=3.6'
+                  )
