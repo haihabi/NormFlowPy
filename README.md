@@ -6,7 +6,9 @@ We have implemented the following layers:
 * Neural Spline Flow and Cubic Flow
 and others. Note, that so implementation's based on other Github repositories and this would be stated in each file.
 # Installation
-Will be provide soon. 
+```
+pip install normflowpy
+```
 # Code Examples 
 We have provide only a single example at this stage please see [moons notebook](https://github.com/haihabi/NormFlowPy/blob/main/examples/moons_glow_example.ipynb)
 # Contribution & Problems
