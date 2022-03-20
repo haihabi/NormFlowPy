@@ -24,7 +24,7 @@ setup_obj = setup(name='normflowpy',
                                ".github.*", "github"]),
                   classifiers=[
                       "Programming Language :: Python :: 3",
-                      "License :: OSI Approved :: MIT LICENSE",
+                      "License :: OSI Approved :: MIT License",
                       "Operating System :: OS Independent",
                       "Topic :: Scientific/Engineering :: Artificial Intelligence"
                   ],
