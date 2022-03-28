@@ -24,10 +24,10 @@ class ConditionalBaseFlowLayer(BaseFlowLayer):
     def __init__(self):
         super().__init__()
 
-    def forward(self, x, cond):
+    def forward(self, x, **kwargs):
         raise NotImplemented
 
-    def backward(self, z, cond):
+    def backward(self, z, **kwargs):
         raise NotImplemented
 
 

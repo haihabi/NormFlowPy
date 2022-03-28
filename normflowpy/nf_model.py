@@ -11,7 +11,7 @@ class NormalizingFlow(nn.Module):
         super().__init__()
         self.flows = nn.ModuleList(flows)
 
-    def forward(self, x, cond=None):
+    def forward(self, x, **kwargs):
         m = x.shape[0]
         log_det = torch.zeros(m, device=x.device)
         zs = [x]
@@ -20,7 +20,7 @@ class NormalizingFlow(nn.Module):
                 if isinstance(flow, UnconditionalBaseFlowLayer):
                     x, ld = flow.forward(x)
                 elif isinstance(flow, ConditionalBaseFlowLayer):
-                    x, ld = flow.forward(x, cond=cond)
+                    x, ld = flow.forward(x, **kwargs)
                 else:
                     raise Exception("Unknown flow type")
                 if torch.any(torch.isnan(x)):
@@ -32,7 +32,7 @@ class NormalizingFlow(nn.Module):
                 raise Exception(f"Error {e} in flow type:{type(flow)} at index {i}")
         return zs, log_det
 
-    def backward(self, z, cond=None):
+    def backward(self, z, **kwargs):
         m = z.shape[0]
         log_det = torch.zeros(m, device=z.device)
         xs = [z]
@@ -40,7 +40,7 @@ class NormalizingFlow(nn.Module):
             if isinstance(flow, UnconditionalBaseFlowLayer):
                 z, ld = flow.backward(z)
             elif isinstance(flow, ConditionalBaseFlowLayer):
-                z, ld = flow.backward(z, cond=cond)
+                z, ld = flow.backward(z, **kwargs)
             else:
                 raise Exception(f"Unknown flow type:{type(flow)}")
             log_det += ld
@@ -57,34 +57,34 @@ class NormalizingFlowModel(nn.Module):
         self.condition_network = condition_network
         self.flow = NormalizingFlow(flows)
 
-    def forward(self, x, cond=None):
+    def forward(self, x, **kwargs):
         if self.condition_network is not None:
-            cond = self.condition_network(cond)
-        zs, log_det = self.flow.forward(x, cond=cond)
+            kwargs = self.condition_network(**kwargs)
+        zs, log_det = self.flow.forward(x, **kwargs)
         prior_logprob = self.prior.log_prob(zs[-1]).view(x.size(0), -1).sum(1)
         return zs, prior_logprob, log_det
 
-    def backward(self, z, cond=None):
+    def backward(self, z, **kwargs):
         if self.condition_network is not None:
-            cond = self.condition_network(cond)
-        xs, log_det = self.flow.backward(z, cond)
+            kwargs = self.condition_network(**kwargs)
+        xs, log_det = self.flow.backward(z, **kwargs)
         return xs, log_det
 
-    def nll(self, x, cond=None):
-        zs, prior_logprob, log_det = self(x, cond=cond)
+    def nll(self, x, **kwargs):
+        zs, prior_logprob, log_det = self(x, **kwargs)
         logprob = prior_logprob + log_det  # Log-likelihood (LL)
         return -logprob  # Negative LL
 
     def nll_mean(self, x, cond=None):
         return torch.mean(self.nll(x, cond)) / x.shape[1:].numel()  # NLL per dim
 
-    def sample(self, num_samples, cond=None, temperature: float = 1):
+    def sample(self, num_samples, temperature: float = 1, **kwargs):
         param_list = list(self.flow.parameters())
         device = list(self.flow.parameters())[0].device if len(param_list) > 0 else torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         z = self.prior.sample((num_samples,)).to(device)
         z = math.sqrt(temperature) * z
-        xs, _ = self.backward(z, cond)
+        xs, _ = self.backward(z, **kwargs)
         return xs[-1]
 
     def sample_nll(self, num_samples, cond=None, temperature=1.0):

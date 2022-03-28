@@ -78,7 +78,7 @@ class ConditionalAffineCoupling(ConditionalBaseFlowLayer, BaseAffineCoupling):
         if shift:
             self.t_cond = net_class(self.condition_vector_size + self.input_size, self.input_size, nh)
 
-    def forward(self, x, cond=None):
+    def forward(self, x, cond=None, **kwargs):
         x0, x1 = self.split_input(x)
 
         s = self.s_cond(torch.cat([x0, cond], dim=-1))
@@ -92,7 +92,7 @@ class ConditionalAffineCoupling(ConditionalBaseFlowLayer, BaseAffineCoupling):
         log_det = torch.sum(s, dim=1)
         return z, log_det
 
-    def backward(self, z, cond=None):
+    def backward(self, z, cond=None, **kwargs):
 
         z0, z1 = self.split_input(z)
         s = self.s_cond(torch.cat([z0, cond], dim=-1))
@@ -122,7 +122,7 @@ class AffineInjector(ConditionalBaseFlowLayer):
         if shift:
             self.t_cond = net_class([2 * self.condition_vector_size], self.dim, n_hidden)
 
-    def forward(self, x, cond):
+    def forward(self, x, cond, **kwargs):
 
         s = self.s_cond(cond)
         t = self.t_cond(cond)
@@ -131,8 +131,7 @@ class AffineInjector(ConditionalBaseFlowLayer):
         log_det = torch.sum(s.reshape([s.shape[0], -1]), dim=1)
         return z, log_det
 
-    def backward(self, z, cond):
-        # z
+    def backward(self, z, cond, **kwargs):
         s = self.s_cond(cond)
         t = self.t_cond(cond)
         x = (z - t) * torch.exp(-s)  # reverse the transform on this half
@@ -168,7 +167,7 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
             t = 0
         elif self.shift:
             t = s
-            s = torch.zeros([x0.shape[0], 1],device=x.device)  # TODO: change to correct shape
+            s = torch.zeros([x0.shape[0], 1], device=x.device)  # TODO: change to correct shape
         z0 = x0  # untouched half
         z1 = torch.exp(s) * x1 + t  # transform this half as a function of the other
         z = self.joint_output(z0, z1)
@@ -184,7 +183,7 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
             t = 0
         elif self.shift:
             t = s
-            s = torch.zeros([z0.shape[0], 1],device=z.device)
+            s = torch.zeros([z0.shape[0], 1], device=z.device)
 
         x0 = z0  # this was the same
 
