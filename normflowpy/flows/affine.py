@@ -107,13 +107,22 @@ class ConditionalAffineCoupling(ConditionalBaseFlowLayer, BaseAffineCoupling):
 
 
 class AffineInjector(ConditionalBaseFlowLayer):
-    """
-    """
+    def __init__(self, x_shape: list, cond_name: str, condition_vector_size: int, n_hidden: int,
+                 net_class: nn.Module = base_nets.generate_mlp_class(), scale: bool = True,
+                 shift: bool = True):
+        """
 
-    def __init__(self, x_shape, condition_vector_size, n_hidden, net_class=base_nets.generate_mlp_class(), scale=True,
-                 shift=True):
+        :param x_shape:
+        :param cond_name:
+        :param condition_vector_size:
+        :param n_hidden:
+        :param net_class:
+        :param scale:
+        :param shift:
+        """
         super().__init__()
         self.dim = x_shape[0]
+        self.cond_name = cond_name
         self.condition_vector_size = condition_vector_size
         self.s_cond = lambda x: x.new_zeros(x.size(0), self.dim)
         self.t_cond = lambda x: x.new_zeros(x.size(0), self.dim)
@@ -122,8 +131,8 @@ class AffineInjector(ConditionalBaseFlowLayer):
         if shift:
             self.t_cond = net_class([2 * self.condition_vector_size], self.dim, n_hidden)
 
-    def forward(self, x, cond, **kwargs):
-
+    def forward(self, x, **kwargs):
+        cond = kwargs[self.cond_name]
         s = self.s_cond(cond)
         t = self.t_cond(cond)
         z = torch.exp(s) * x + t  # transform this half as a function of the other
@@ -131,7 +140,8 @@ class AffineInjector(ConditionalBaseFlowLayer):
         log_det = torch.sum(s.reshape([s.shape[0], -1]), dim=1)
         return z, log_det
 
-    def backward(self, z, cond, **kwargs):
+    def backward(self, z, **kwargs):
+        cond = kwargs[self.cond_name]
         s = self.s_cond(cond)
         t = self.t_cond(cond)
         x = (z - t) * torch.exp(-s)  # reverse the transform on this half

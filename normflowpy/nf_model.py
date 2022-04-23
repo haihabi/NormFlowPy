@@ -1,5 +1,7 @@
 import torch
 import math
+import traceback
+
 from torch import nn
 from normflowpy.base_flow import UnconditionalBaseFlowLayer, ConditionalBaseFlowLayer
 
@@ -29,6 +31,7 @@ class NormalizingFlow(nn.Module):
                 zs.append(x)
 
             except Exception as e:
+                print(traceback.format_exc())
                 raise Exception(f"Error {e} in flow type:{type(flow)} at index {i}")
         return zs, log_det
 
@@ -75,8 +78,8 @@ class NormalizingFlowModel(nn.Module):
         logprob = prior_logprob + log_det  # Log-likelihood (LL)
         return -logprob  # Negative LL
 
-    def nll_mean(self, x, cond=None):
-        return torch.mean(self.nll(x, cond)) / x.shape[1:].numel()  # NLL per dim
+    def nll_mean(self, x, **kwargs):
+        return torch.mean(self.nll(x, **kwargs)) / x.shape[1:].numel()  # NLL per dim
 
     def sample(self, num_samples, temperature: float = 1, **kwargs):
         param_list = list(self.flow.parameters())
