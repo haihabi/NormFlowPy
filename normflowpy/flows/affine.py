@@ -3,6 +3,7 @@ import math
 from torch import nn
 from normflowpy import base_nets
 from normflowpy.base_flow import ConditionalBaseFlowLayer, UnconditionalBaseFlowLayer
+import numpy as np
 
 
 class BaseAffineCoupling(object):
@@ -55,6 +56,30 @@ class AffineConstantFlow(UnconditionalBaseFlowLayer):
         t = self.t if self.t is not None else z.new_zeros(z.size())
         x = (z - t) * torch.exp(-s)
         log_det = torch.sum(-s.reshape([1, -1]), dim=1)
+        return x, log_det
+
+
+class UserDefinedAffineFlow(UnconditionalBaseFlowLayer):
+    """
+    Scales + Shifts the flow by (learned) constants per dimension.
+    In NICE paper there is a Scaling layer which is a special case of this where t is None
+    """
+
+    def __init__(self, scale: float = 1.0, shift: float = 0.0):
+        super().__init__()
+        self.s = nn.Parameter(torch.ones(1, requires_grad=False) * scale)
+        self.t = nn.Parameter(torch.ones(1, requires_grad=False) * shift)
+
+    def forward(self, x):
+        z = (x - self.t) / self.s
+        m = np.prod(x.shape[1:])
+        log_det = -m * torch.log(self.s)
+        return z, log_det
+
+    def backward(self, z):
+        x = self.s * z + self.t
+        m = np.prod(x.shape[1:])
+        log_det = m * torch.log(self.s)
         return x, log_det
 
 
@@ -133,6 +158,8 @@ class AffineInjector(ConditionalBaseFlowLayer):
 
     def forward(self, x, **kwargs):
         cond = kwargs[self.cond_name]
+        if cond.shape[0] == 1:
+            cond = cond.repeat([x.shape[0], *[1 for _ in range(len(cond.shape[1:]))]])
         s = self.s_cond(cond)
         t = self.t_cond(cond)
         z = torch.exp(s) * x + t  # transform this half as a function of the other
@@ -142,6 +169,8 @@ class AffineInjector(ConditionalBaseFlowLayer):
 
     def backward(self, z, **kwargs):
         cond = kwargs[self.cond_name]
+        if cond.shape[0] == 1:
+            cond = cond.repeat([z.shape[0], *[1 for _ in range(len(cond.shape[1:]))]])
         s = self.s_cond(cond)
         t = self.t_cond(cond)
         x = (z - t) * torch.exp(-s)  # reverse the transform on this half

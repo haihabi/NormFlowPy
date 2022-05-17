@@ -1,2 +1,3 @@
 from normflowpy.preprocess.dequantized import Dequatization
+from normflowpy.preprocess.input_padding import InputPadding
 from normflowpy.preprocess.numpy2tensor import NumPyArray2Tensor

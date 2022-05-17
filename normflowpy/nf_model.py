@@ -3,7 +3,8 @@ import math
 import traceback
 
 from torch import nn
-from normflowpy.base_flow import UnconditionalBaseFlowLayer, ConditionalBaseFlowLayer
+from normflowpy.base_flow import UnconditionalBaseFlowLayer, ConditionalBaseFlowLayer, BaseFlowModel, BaseFlowLayer
+from normflowpy.priors.trainable_prior import TrainablePrior
 
 
 class NormalizingFlow(nn.Module):
@@ -12,6 +13,9 @@ class NormalizingFlow(nn.Module):
     def __init__(self, flows):
         super().__init__()
         self.flows = nn.ModuleList(flows)
+
+    def insert_flow_step(self, flow_step: BaseFlowLayer):
+        self.flows.insert(0, flow_step)
 
     def forward(self, x, **kwargs):
         m = x.shape[0]
@@ -39,26 +43,34 @@ class NormalizingFlow(nn.Module):
         m = z.shape[0]
         log_det = torch.zeros(m, device=z.device)
         xs = [z]
-        for flow in self.flows[::-1]:
+        for i, flow in enumerate(self.flows[::-1]):
             if isinstance(flow, UnconditionalBaseFlowLayer):
                 z, ld = flow.backward(z)
             elif isinstance(flow, ConditionalBaseFlowLayer):
                 z, ld = flow.backward(z, **kwargs)
             else:
                 raise Exception(f"Unknown flow type:{type(flow)}")
+            if torch.any(torch.isnan(z)):
+                raise Exception("Output results is Not a Number")
             log_det += ld
             xs.append(z)
         return xs, log_det
 
 
-class NormalizingFlowModel(nn.Module):
+class NormalizingFlowModel(BaseFlowModel):
     """ A Normalizing Flow Model is a (prior, flow) pair """
 
     def __init__(self, prior, flows, condition_network=None):
         super().__init__()
-        self.prior = prior
+        if isinstance(prior, TrainablePrior):  # If prior is trainable add it as module.
+            self.add_module("prior", prior)
+        else:
+            self.prior = prior
         self.condition_network = condition_network
         self.flow = NormalizingFlow(flows)
+
+    def insert_flow_step(self, flow_step: BaseFlowModel):
+        self.flow.insert_flow_step(flow_step)
 
     def forward(self, x, **kwargs):
         if self.condition_network is not None:
@@ -78,9 +90,6 @@ class NormalizingFlowModel(nn.Module):
         logprob = prior_logprob + log_det  # Log-likelihood (LL)
         return -logprob  # Negative LL
 
-    def nll_mean(self, x, **kwargs):
-        return torch.mean(self.nll(x, **kwargs)) / x.shape[1:].numel()  # NLL per dim
-
     def sample(self, num_samples, temperature: float = 1, **kwargs):
         param_list = list(self.flow.parameters())
         device = list(self.flow.parameters())[0].device if len(param_list) > 0 else torch.device(
@@ -90,7 +99,10 @@ class NormalizingFlowModel(nn.Module):
         xs, _ = self.backward(z, **kwargs)
         return xs[-1]
 
-    def sample_nll(self, num_samples, cond=None, temperature=1.0):
-        y = self.sample(num_samples, cond=cond, temperature=temperature)
+    def sample_nll(self, num_samples, temperature=1.0, **kwargs):
+        y = self.sample(num_samples, temperature=temperature, **kwargs)
         y = y.detach()
-        return self.nll(y, cond)
+        return self.nll(y, **kwargs)
+
+    def nll_mean(self, x, **kwargs):
+        return torch.mean(self.nll(x, **kwargs)) / x.shape[1:].numel()  # NLL per dim
