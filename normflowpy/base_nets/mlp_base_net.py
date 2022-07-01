@@ -11,10 +11,20 @@ from normflowpy.base_nets.made import MADE
 class ScaledTanh(nn.Module):
     def __init__(self, init_scale=1.0):
         super().__init__()
-        self.p = nn.Parameter(torch.ones(1) * init_scale)
+        self.p = nn.Parameter(torch.ones(1) * init_scale,requires_grad=True)
 
     def forward(self, x):
         return self.p * torch.tanh(x)
+
+
+class ScaledSigmoid(nn.Module):
+    def __init__(self, init_scale=2.0, eps=1e-6):
+        super().__init__()
+        self.p = nn.Parameter(torch.ones(1) * init_scale,requires_grad=False)
+        self.eps = eps
+
+    def forward(self, x):
+        return self.p * torch.sigmoid(x) + self.eps
 
 
 class LeafParam(nn.Module):
@@ -49,10 +59,11 @@ class PositionalEncoder(nn.Module):
         return out
 
 
-def generate_mlp_class(n_layer=4, non_linear_function=nn.LeakyReLU, bias=True, output_nl=None):
+def generate_mlp_class(n_layer=3, non_linear_function=nn.LeakyReLU, bias=True, output_nl=None):
     class MLPC(nn.Module):
         """ a simple n-layer MLP """
 
+        # TODO: move n_hidden to generator
         def __init__(self, x_shape, nout, n_hidden):
             nin = x_shape[0] // 2
             super().__init__()
@@ -62,12 +73,12 @@ def generate_mlp_class(n_layer=4, non_linear_function=nn.LeakyReLU, bias=True, o
                 layer_list = [nn.Linear(nin, n_hidden), non_linear_function()]
                 for i in range(max(n_layer - 2, 0)):
                     layer_list.append(nn.Linear(n_hidden, n_hidden))
-                    # torch.nn.init.xavier_normal_(layer_list[-1].weight)
+                    torch.nn.init.xavier_normal_(layer_list[-1].weight)
                     layer_list.append(non_linear_function())
                 layer_list.append(nn.Linear(n_hidden, nout, bias=bias))
-                # torch.nn.init.xavier_normal_(layer_list[-1].weight)
+                torch.nn.init.xavier_normal_(layer_list[-1].weight)
             if output_nl is not None:
-                layer_list.append(output_nl())
+                layer_list.append(output_nl)
             self.net = nn.Sequential(*layer_list)
 
         def forward(self, x):

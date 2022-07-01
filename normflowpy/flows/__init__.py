@@ -1,5 +1,5 @@
 from normflowpy.flows.affine import AffineConstantFlow, ConditionalAffineCoupling, AffineInjector, \
-    AffineCoupling, UserDefinedAffineFlow
+    AffineCoupling, UserDefinedAffineFlow, MixLogCoupling
 from normflowpy.flows.act_norm import ActNorm, InputNorm
 from normflowpy.flows.iaf import IAF
 from normflowpy.flows.maf import MAF

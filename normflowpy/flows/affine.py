@@ -1,8 +1,11 @@
+from typing import List
+
 import torch
 import math
 from torch import nn
 from normflowpy import base_nets
 from normflowpy.base_flow import ConditionalBaseFlowLayer, UnconditionalBaseFlowLayer
+from normflowpy.flows import helpers
 import numpy as np
 
 
@@ -132,7 +135,7 @@ class ConditionalAffineCoupling(ConditionalBaseFlowLayer, BaseAffineCoupling):
 
 
 class AffineInjector(ConditionalBaseFlowLayer):
-    def __init__(self, x_shape: list, cond_name: str, condition_vector_size: int, n_hidden: int,
+    def __init__(self, x_shape: list, cond_name_list: List[str], condition_vector_size: int, n_hidden: int,
                  net_class: nn.Module = base_nets.generate_mlp_class(), scale: bool = True,
                  shift: bool = True):
         """
@@ -147,7 +150,7 @@ class AffineInjector(ConditionalBaseFlowLayer):
         """
         super().__init__()
         self.dim = x_shape[0]
-        self.cond_name = cond_name
+        self.cond_name_list = cond_name_list
         self.condition_vector_size = condition_vector_size
         self.s_cond = lambda x: x.new_zeros(x.size(0), self.dim)
         self.t_cond = lambda x: x.new_zeros(x.size(0), self.dim)
@@ -156,10 +159,17 @@ class AffineInjector(ConditionalBaseFlowLayer):
         if shift:
             self.t_cond = net_class([2 * self.condition_vector_size], self.dim, n_hidden)
 
+    def build_condition_vector(self, x, **kwargs):
+        cond_list = []
+        for cond_name in self.cond_name_list:
+            cond = kwargs[cond_name]
+            if cond.shape[0] == 1:
+                cond = cond.repeat([x.shape[0], *[1 for _ in range(len(cond.shape[1:]))]])
+            cond_list.append(cond)
+        return torch.cat(cond_list, dim=-1)
+
     def forward(self, x, **kwargs):
-        cond = kwargs[self.cond_name]
-        if cond.shape[0] == 1:
-            cond = cond.repeat([x.shape[0], *[1 for _ in range(len(cond.shape[1:]))]])
+        cond = self.build_condition_vector(x, **kwargs)
         s = self.s_cond(cond)
         t = self.t_cond(cond)
         z = torch.exp(s) * x + t  # transform this half as a function of the other
@@ -168,9 +178,7 @@ class AffineInjector(ConditionalBaseFlowLayer):
         return z, log_det
 
     def backward(self, z, **kwargs):
-        cond = kwargs[self.cond_name]
-        if cond.shape[0] == 1:
-            cond = cond.repeat([z.shape[0], *[1 for _ in range(len(cond.shape[1:]))]])
+        cond = self.build_condition_vector(z, **kwargs)
         s = self.s_cond(cond)
         t = self.t_cond(cond)
         x = (z - t) * torch.exp(-s)  # reverse the transform on this half
@@ -229,4 +237,86 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
         x1 = (z1 - t) * torch.exp(-s)  # reverse the transform on this half
         x = self.joint_output(x0, x1)
         log_det = torch.sum(-s.reshape([x0.shape[0], -1]), dim=(1))
+        return x, log_det
+
+
+# import torch.nn as nn
+#
+# from models.flowplusplus import log_dist as logistic
+# from models.flowplusplus.nn import NN
+
+
+class MixLogCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
+    NUM_PARAM_AFFINE = 2
+    NUM_PARAM_MIX = 3
+
+    def __init__(self, x_shape, net_class: nn.Module = base_nets.generate_mlp_class(), n_hidden: int = 24,
+                 parity=False, k_clusters: int = 3,
+                 neighbor_splitting=False):
+        """
+
+        :param x_shape:
+        :param net_class:
+        :param n_hidden:
+        :param parity:
+        :param neighbor_splitting:
+        """
+        super().__init__()
+        BaseAffineCoupling.__init__(self, parity, x_shape[0] // 2, neighbor_splitting=neighbor_splitting)
+
+        self.k_clusters = k_clusters
+        output_size = self.NUM_PARAM_AFFINE * self.input_size + k_clusters * self.NUM_PARAM_MIX
+        self.nn = net_class(x_shape, output_size, n_hidden)
+
+    def forward(self, x):
+        x0, x1 = self.split_input(x)
+        param_x0 = self.nn(x0)
+        affine_param = param_x0[:, :self.NUM_PARAM_AFFINE * self.input_size]
+        cluster_param = param_x0[:, self.NUM_PARAM_AFFINE * self.input_size:]
+        a, b = torch.split(affine_param, self.input_size, dim=-1)
+        pi, mu, s = torch.split(cluster_param, self.k_clusters, dim=-1)
+        # a, b, pi, mu, s = torch.split(param_x0, self.input_size, dim=-1)
+
+        # if reverse:
+        # else:
+        out = helpers.logistic.mixture_log_cdf(x1, pi, mu, s).exp()
+        out = out.clamp(1e-5, 1. - 1e-5)  # Add this for numeric stability
+        out, scale_ldj = helpers.logistic.inverse(out)
+        out = (out + b) * a.exp()
+
+        ######################
+        # Build log det
+        ######################
+        logistic_ldj = helpers.logistic.mixture_log_pdf(x1, pi, mu, s)
+        log_det = (logistic_ldj + scale_ldj + a).flatten(1).sum(-1)
+
+        z0 = x0  # untouched half
+        z1 = out  # transform this half as a function of the other
+        z = self.joint_output(z0, z1)
+
+        return z, log_det
+
+    def backward(self, z):
+        z0, z1 = self.split_input(z)
+        param_z0 = self.nn(z0)
+        affine_param = param_z0[:, :self.NUM_PARAM_AFFINE * self.input_size]
+        cluster_param = param_z0[:, self.NUM_PARAM_AFFINE * self.input_size:]
+        a, b = torch.split(affine_param, self.input_size, dim=-1)
+        pi, mu, s = torch.split(cluster_param, self.k_clusters, dim=-1)
+
+        out = z1 * a.mul(-1).exp() - b
+        out, scale_ldj = helpers.logistic.inverse(out, reverse=True)
+        out = out.clamp(1e-5, 1. - 1e-5)
+        out = helpers.logistic.mixture_inv_cdf(out, pi, mu, s)
+
+        ######################
+        # Build log det
+        ######################
+        logistic_ldj = helpers.logistic.mixture_log_pdf(out, pi, mu, s)
+        log_det = - (a + scale_ldj + logistic_ldj).flatten(1).sum(-1)
+
+        x0 = z0  # untouched half
+        x1 = out  # transform this half as a function of the other
+        x = self.joint_output(x0, x1)
+
         return x, log_det

@@ -7,6 +7,11 @@ from normflowpy.base_flow import UnconditionalBaseFlowLayer, ConditionalBaseFlow
 from normflowpy.priors.trainable_prior import TrainablePrior
 
 
+def check_is_number(in_xz):
+    if torch.any(torch.logical_or(torch.isnan(in_xz), torch.isinf(in_xz))):  # TODO: move to function
+        raise Exception("Output results is Not a Number")
+
+
 class NormalizingFlow(nn.Module):
     """ A sequence of Normalizing Flows is a Normalizing Flow """
 
@@ -17,26 +22,44 @@ class NormalizingFlow(nn.Module):
     def insert_flow_step(self, flow_step: BaseFlowLayer):
         self.flows.insert(0, flow_step)
 
+    def _step_flow(self, in_flow, in_flow_function, in_zx, **kwargs):
+        try:
+            if isinstance(in_flow, UnconditionalBaseFlowLayer):
+                out_zx, ld = in_flow_function(in_zx)
+            elif isinstance(in_flow, ConditionalBaseFlowLayer):
+                out_zx, ld = in_flow_function(in_zx, **kwargs)
+            else:
+                raise Exception("Unknown flow type")
+            check_is_number(out_zx)
+        except Exception as e:
+            print(traceback.format_exc())
+            raise Exception(f"Error {e} in flow type:{type(in_flow)}")
+        return out_zx, ld
+
     def forward(self, x, **kwargs):
         m = x.shape[0]
         log_det = torch.zeros(m, device=x.device)
         zs = [x]
-        for i, flow in enumerate(self.flows):
-            try:
-                if isinstance(flow, UnconditionalBaseFlowLayer):
-                    x, ld = flow.forward(x)
-                elif isinstance(flow, ConditionalBaseFlowLayer):
-                    x, ld = flow.forward(x, **kwargs)
-                else:
-                    raise Exception("Unknown flow type")
-                if torch.any(torch.isnan(x)):
-                    raise Exception("Output results is Not a Number")
-                log_det += ld
-                zs.append(x)
 
-            except Exception as e:
-                print(traceback.format_exc())
-                raise Exception(f"Error {e} in flow type:{type(flow)} at index {i}")
+        for i, flow in enumerate(self.flows):
+            # TODO:Make it a function
+            x, ld = self._step_flow(flow, flow.forward, x, **kwargs)
+            log_det += ld
+            zs.append(x)
+            # _x = x
+            # try:
+            #     if isinstance(flow, UnconditionalBaseFlowLayer):
+            #         x, ld = flow.forward(_x)
+            #     elif isinstance(flow, ConditionalBaseFlowLayer):
+            #         x, ld = flow.forward(_x, **kwargs)
+            #     else:
+            #         raise Exception("Unknown flow type")
+            #     check_is_number(x)
+            #     log_det += ld
+            #     zs.append(x)
+            # except Exception as e:
+            #     print(traceback.format_exc())
+            #     raise Exception(f"Error {e} in flow type:{type(flow)} at index {i}")
         return zs, log_det
 
     def backward(self, z, **kwargs):
@@ -44,14 +67,14 @@ class NormalizingFlow(nn.Module):
         log_det = torch.zeros(m, device=z.device)
         xs = [z]
         for i, flow in enumerate(self.flows[::-1]):
-            if isinstance(flow, UnconditionalBaseFlowLayer):
-                z, ld = flow.backward(z)
-            elif isinstance(flow, ConditionalBaseFlowLayer):
-                z, ld = flow.backward(z, **kwargs)
-            else:
-                raise Exception(f"Unknown flow type:{type(flow)}")
-            if torch.any(torch.isnan(z)):
-                raise Exception("Output results is Not a Number")
+            z, ld = self._step_flow(flow, flow.backward, z, **kwargs)
+            # if isinstance(flow, UnconditionalBaseFlowLayer):
+            #     z, ld = flow.backward(z)
+            # elif isinstance(flow, ConditionalBaseFlowLayer):
+            #     z, ld = flow.backward(z, **kwargs)
+            # else:
+            #     raise Exception(f"Unknown flow type:{type(flow)}")
+            # check_is_number(z)
             log_det += ld
             xs.append(z)
         return xs, log_det

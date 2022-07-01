@@ -1,16 +1,10 @@
 import unittest
 import normflowpy as nfp
 import torch
-import numpy as np
+from tests.helpers import check_zero
 
 
 class TestFlowSteps(unittest.TestCase):
-
-    def check_zero(self, x):
-        if isinstance(x, torch.Tensor):
-            x = torch.abs(x).sum()  # Sum batch axis
-            x = x.item()
-        self.assertTrue(np.isclose(x, 0))
 
     def check_save_load(self, t_model, r_model, input_shape):
         r_model.load_state_dict(t_model.state_dict())
@@ -18,16 +12,16 @@ class TestFlowSteps(unittest.TestCase):
         z_hat1, log_det_hat = t_model.forward(z)
         z_hat2, log_det_hat = r_model.forward(z)
         error = torch.pow(z_hat1 - z_hat2, 2.0).max()
-        self.check_zero(error)
+        self.assertTrue(check_zero(error))
 
-    def base_flow_step(self, flow_step, flow_step_sec, input_shape):
+    def base_flow_step(self, flow_step, flow_step_sec, input_shape, error_limits=1e-5):
         z = torch.randn(input_shape)
         x, logdet = flow_step.backward(z)
         z_hat, log_det_hat = flow_step.forward(x)
         log_det_sum = logdet + log_det_hat
         error = torch.pow(z_hat - z, 2.0).max().item()
-        self.check_zero(error)
-        self.check_zero(log_det_sum)
+        self.assertTrue(check_zero(error, atol=error_limits))
+        self.assertTrue(check_zero(log_det_sum, atol=error_limits))
         self.check_save_load(flow_step, flow_step_sec, input_shape)
 
     def test_tensor2vector(self):
@@ -55,12 +49,28 @@ class TestFlowSteps(unittest.TestCase):
         self.base_flow_step(flow_step, flow_step_sec, input_shape)
 
     def test_act_norm(self):
-        flow_step = nfp.flows.ActNorm(10)
-        flow_step_sec = nfp.flows.ActNorm(10)
+        flow_step = nfp.flows.ActNorm([10])
+        flow_step_sec = nfp.flows.ActNorm([10])
         input_shape = [32, 10]
         z = torch.randn(input_shape)
         flow_step.forward(z)
         self.base_flow_step(flow_step, flow_step_sec, input_shape)
+
+    def test_user_define_affine(self):
+        flow_step = nfp.flows.UserDefinedAffineFlow(2, -1)
+        flow_step_sec = nfp.flows.UserDefinedAffineFlow(2, -1)
+        input_shape = [32, 10]
+        z = torch.randn(input_shape)
+        flow_step.forward(z)
+        self.base_flow_step(flow_step, flow_step_sec, input_shape)
+
+    def test_mix_coupling(self):
+        flow_step = nfp.flows.MixLogCoupling([10])
+        flow_step_sec = nfp.flows.MixLogCoupling([10])
+        input_shape = [32, 10]
+        z = torch.randn(input_shape)
+        flow_step.forward(z)
+        self.base_flow_step(flow_step, flow_step_sec, input_shape, error_limits=1e-4)
 
 
 if __name__ == '__main__':
