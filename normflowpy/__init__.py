@@ -6,4 +6,4 @@ from normflowpy.base_flow import ConditionalBaseFlowLayer, UnconditionalBaseFlow
 from normflowpy import preprocess
 from normflowpy import priors
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
