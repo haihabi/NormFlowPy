@@ -46,20 +46,6 @@ class NormalizingFlow(nn.Module):
             x, ld = self._step_flow(flow, flow.forward, x, **kwargs)
             log_det += ld
             zs.append(x)
-            # _x = x
-            # try:
-            #     if isinstance(flow, UnconditionalBaseFlowLayer):
-            #         x, ld = flow.forward(_x)
-            #     elif isinstance(flow, ConditionalBaseFlowLayer):
-            #         x, ld = flow.forward(_x, **kwargs)
-            #     else:
-            #         raise Exception("Unknown flow type")
-            #     check_is_number(x)
-            #     log_det += ld
-            #     zs.append(x)
-            # except Exception as e:
-            #     print(traceback.format_exc())
-            #     raise Exception(f"Error {e} in flow type:{type(flow)} at index {i}")
         return zs, log_det
 
     def backward(self, z, **kwargs):
@@ -68,13 +54,6 @@ class NormalizingFlow(nn.Module):
         xs = [z]
         for i, flow in enumerate(self.flows[::-1]):
             z, ld = self._step_flow(flow, flow.backward, z, **kwargs)
-            # if isinstance(flow, UnconditionalBaseFlowLayer):
-            #     z, ld = flow.backward(z)
-            # elif isinstance(flow, ConditionalBaseFlowLayer):
-            #     z, ld = flow.backward(z, **kwargs)
-            # else:
-            #     raise Exception(f"Unknown flow type:{type(flow)}")
-            # check_is_number(z)
             log_det += ld
             xs.append(z)
         return xs, log_det
