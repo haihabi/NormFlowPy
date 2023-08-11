@@ -12,38 +12,41 @@ def check_is_number(in_xz):
         raise Exception("Output results is Not a Number")
 
 
+def _step_flow(in_flow, in_flow_function, in_zx, **kwargs):
+    try:
+        if isinstance(in_flow, UnconditionalBaseFlowLayer):
+            out_zx, ld = in_flow_function(in_zx)
+        elif isinstance(in_flow, ConditionalBaseFlowLayer):
+            out_zx, ld = in_flow_function(in_zx, **kwargs)
+        else:
+            raise Exception("Unknown flow type")
+        check_is_number(out_zx)
+    except Exception as e:
+        print(traceback.format_exc())
+        raise Exception(f"Error {e} in flow type:{type(in_flow)}")
+    return out_zx, ld
+
+
 class NormalizingFlow(nn.Module):
     """ A sequence of Normalizing Flows is a Normalizing Flow """
 
-    def __init__(self, flows):
+    def __init__(self, flows, is_complex=False):
         super().__init__()
         self.flows = nn.ModuleList(flows)
 
     def insert_flow_step(self, flow_step: BaseFlowLayer):
         self.flows.insert(0, flow_step)
 
-    def _step_flow(self, in_flow, in_flow_function, in_zx, **kwargs):
-        try:
-            if isinstance(in_flow, UnconditionalBaseFlowLayer):
-                out_zx, ld = in_flow_function(in_zx)
-            elif isinstance(in_flow, ConditionalBaseFlowLayer):
-                out_zx, ld = in_flow_function(in_zx, **kwargs)
-            else:
-                raise Exception("Unknown flow type")
-            check_is_number(out_zx)
-        except Exception as e:
-            print(traceback.format_exc())
-            raise Exception(f"Error {e} in flow type:{type(in_flow)}")
-        return out_zx, ld
-
     def forward(self, x, **kwargs):
         m = x.shape[0]
+
         log_det = torch.zeros(m, device=x.device)
+
         zs = [x]
 
         for i, flow in enumerate(self.flows):
             # TODO:Make it a function
-            x, ld = self._step_flow(flow, flow.forward, x, **kwargs)
+            x, ld = _step_flow(flow, flow.forward, x, **kwargs)
             log_det += ld
             zs.append(x)
         return zs, log_det
@@ -53,7 +56,7 @@ class NormalizingFlow(nn.Module):
         log_det = torch.zeros(m, device=z.device)
         xs = [z]
         for i, flow in enumerate(self.flows[::-1]):
-            z, ld = self._step_flow(flow, flow.backward, z, **kwargs)
+            z, ld = _step_flow(flow, flow.backward, z, **kwargs)
             log_det += ld
             xs.append(z)
         return xs, log_det
@@ -62,14 +65,14 @@ class NormalizingFlow(nn.Module):
 class NormalizingFlowModel(BaseFlowModel):
     """ A Normalizing Flow Model is a (prior, flow) pair """
 
-    def __init__(self, prior, flows, condition_network=None):
+    def __init__(self, prior, flows, condition_network=None, is_complex=False):
         super().__init__()
         if isinstance(prior, TrainablePrior):  # If prior is trainable add it as module.
             self.add_module("prior", prior)
         else:
             self.prior = prior
         self.condition_network = condition_network
-        self.flow = NormalizingFlow(flows)
+        self.flow = NormalizingFlow(flows, is_complex=is_complex)
 
     def insert_flow_step(self, flow_step: BaseFlowModel):
         self.flow.insert_flow_step(flow_step)
