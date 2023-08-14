@@ -15,3 +15,15 @@ class Tensor2Vector(UnconditionalBaseFlowLayer):
         return x, 0
 
 
+class Vector2Tensor(UnconditionalBaseFlowLayer):
+    def __init__(self, in_shape):
+        super().__init__()
+        self.shape = in_shape
+
+    def forward(self, x):
+        x = x.reshape([-1, *self.shape])
+        return x, 0
+
+    def backward(self, z):
+        z = z.reshape([z.shape[0], -1])
+        return z, 0
