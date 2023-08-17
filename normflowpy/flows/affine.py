@@ -19,7 +19,8 @@ class BaseAffineCoupling(object):
         if self.neighbor_splitting:
             zx0, zx1 = zx[:, 0::2], zx[:, 1::2]
         else:
-            zx0, zx1 = zx[:, :self.input_size], zx[:, self.input_size:]
+            zx0, zx1 = torch.split(zx, int(zx.shape[-1] / 2), dim=-1)
+            # zx0, zx1 = zx[:, :self.input_size], zx[:, self.input_size:]
         if self.parity:
             zx0, zx1 = zx1, zx0
         return zx0, zx1
@@ -199,7 +200,7 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
     def __init__(self, x_shape, parity, net_class=base_nets.RealNVPConvBaseNet, nh=4, scale=True, shift=True,
                  neighbor_splitting=False):
         super().__init__()
-        BaseAffineCoupling.__init__(self, parity, x_shape[0] // 2, neighbor_splitting=neighbor_splitting)
+        BaseAffineCoupling.__init__(self, parity, x_shape[-1] // 2, neighbor_splitting=neighbor_splitting)
         output_size = (int(scale) + int(shift)) * self.input_size
         self.add_module("s_cond", net_class(x_shape, output_size, nh))
         self.scale = scale
@@ -209,7 +210,8 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
         x0, x1 = self.split_input(x)
         s = self.s_cond(x0)
         if self.scale and self.shift:
-            t, s = torch.split(s, split_size_or_sections=self.input_size, dim=1)  # Split output to scale and shift
+            t, s = torch.split(s, split_size_or_sections=self.input_size, dim=-1)  # Split output to scale and shift
+            s = torch.tanh(s)
         elif self.scale:
             t = 0
         elif self.shift:
@@ -238,12 +240,6 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
         x = self.joint_output(x0, x1)
         log_det = torch.sum(-s.reshape([x0.shape[0], -1]), dim=(1))
         return x, log_det
-
-
-# import torch.nn as nn
-#
-# from models.flowplusplus import log_dist as logistic
-# from models.flowplusplus.nn import NN
 
 
 class MixLogCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):

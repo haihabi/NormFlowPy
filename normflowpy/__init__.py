@@ -5,5 +5,6 @@ from normflowpy import flows
 from normflowpy.base_flow import ConditionalBaseFlowLayer, UnconditionalBaseFlowLayer, BaseFlowLayer
 from normflowpy import preprocess
 from normflowpy import priors
+from normflowpy.flow_ema import FlowEMA
 
 __version__ = "0.2.0"
