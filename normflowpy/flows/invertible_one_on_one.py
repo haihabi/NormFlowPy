@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from normflowpy.base_flow import UnconditionalBaseFlowLayer
+import numpy as np
 
 
 class BaseInvertible(UnconditionalBaseFlowLayer):
@@ -42,14 +43,20 @@ class InvertibleFullyConnected(BaseInvertible):
     def forward(self, x):
         W = self._assemble_W(x.device)
         z = x @ W
-        log_det = torch.sum(torch.log(torch.abs(self.S)))
+        n = 1
+        if len(x.shape) > 2:
+            n = np.prod(x.shape[1:-1])
+        log_det = n * torch.sum(torch.log(torch.abs(self.S)))
         return z, log_det
 
     def backward(self, z):
         W = self._assemble_W(z.device)
         W_inv = torch.inverse(W)
         x = z @ W_inv
-        log_det = -torch.sum(torch.log(torch.abs(self.S)))
+        n = 1
+        if len(x.shape) > 2:
+            n = np.prod(x.shape[1:-1])
+        log_det = -n * torch.sum(torch.log(torch.abs(self.S)))
         return x, log_det
 
 

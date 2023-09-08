@@ -9,4 +9,5 @@ from normflowpy.flows.splines.cubic_spline_flow import CSF_CL
 from normflowpy.flows.vector2tensor import Tensor2Vector, Vector2Tensor
 from normflowpy.flows.squeeze import Squeeze
 from normflowpy.flows.flow_modules.sigmoid import Sigmoid
+from normflowpy.flows.flow_modules.batch_normalization import BatchNorm
 from normflowpy.flows.to_complex import ToComplex, ToReal

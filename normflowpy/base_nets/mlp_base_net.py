@@ -68,7 +68,7 @@ def generate_mlp_class(n_layer=3, non_linear_function=nn.LeakyReLU, bias=True, o
             nin = x_shape[-1] // 2
             super().__init__()
             if n_layer == 1:  # The case of singe layer
-                layer_list = [nn.Linear(nin, nout, bias=bias)]
+                layer_list = [nn.Linear(nin, nout, bias=True)]
             else:
                 layer_list = [nn.Linear(nin, n_hidden), non_linear_function()]
                 for i in range(max(n_layer - 2, 0)):

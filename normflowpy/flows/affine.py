@@ -34,7 +34,7 @@ class BaseAffineCoupling(object):
                 [zx0[:, math.floor(i / 2)] if i % 2 == 0 else zx1[:, math.floor(i / 2)] for i in range(n)], dim=1)
             return connect
         else:
-            return torch.cat([zx0, zx1], dim=1)
+            return torch.cat([zx0, zx1], dim=-1)
 
 
 class AffineConstantFlow(UnconditionalBaseFlowLayer):
@@ -216,7 +216,8 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
             t = 0
         elif self.shift:
             t = s
-            s = torch.zeros([x0.shape[0], 1], device=x.device)  # TODO: change to correct shape
+            s = torch.zeros([x0.shape[0], *[1 for _ in range(len(x0.shape) - 1)]],
+                            device=x.device)  # TODO: change to correct shape
         z0 = x0  # untouched half
         z1 = torch.exp(s) * x1 + t  # transform this half as a function of the other
         z = self.joint_output(z0, z1)
@@ -227,12 +228,13 @@ class AffineCoupling(UnconditionalBaseFlowLayer, BaseAffineCoupling):
         z0, z1 = self.split_input(z)
         s = self.s_cond(z0)
         if self.scale and self.shift:
-            t, s = torch.split(s, split_size_or_sections=self.input_size, dim=1)
+            t, s = torch.split(s, split_size_or_sections=self.input_size, dim=-1)
+            s = torch.tanh(s)
         elif self.scale:
             t = 0
         elif self.shift:
             t = s
-            s = torch.zeros([z0.shape[0], 1], device=z.device)
+            s = torch.zeros([z0.shape[0], *[1 for _ in range(len(z0.shape) - 1)]], device=z.device)
 
         x0 = z0  # this was the same
 
